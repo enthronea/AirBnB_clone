@@ -1,16 +1,12 @@
 #!/usr/bin/python3
-
-"""This file defines the Review Model
-It inherits from the BaseModel
 """
-
+Review Model
+"""
 from models.base_model import BaseModel
 
 
 class Review(BaseModel):
-    """The Review Model"""
-
-    # Attributes
-    place_id: str = ""
-    user_id: str = ""
-    text: str = ""
+    """Review of the place"""
+    place_id = ''
+    user_id = ''
+    text = ''

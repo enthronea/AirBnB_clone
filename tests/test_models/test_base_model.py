@@ -1,192 +1,277 @@
 #!/usr/bin/python3
-"""Defines unittests for models/base_model.py.
 
-Unittest classes:
-    TestBaseModel_instantiation
-    TestBaseModel_save
-    TestBaseModel_to_dict
 """
-import os
-import models
+Unittest for BaseModel class.
+"""
+
 import unittest
-from datetime import datetime
+import re
 from time import sleep
+from models import storage
 from models.base_model import BaseModel
 
 
-class TestBaseModel_instantiation(unittest.TestCase):
-    """Unittests for testing instantiation of the BaseModel class."""
+class BaseModel_Test(unittest.TestCase):
+    """Tests for BaseModel class"""
 
-    def test_no_args_instantiates(self):
-        self.assertEqual(BaseModel, type(BaseModel()))
-
-    def test_new_instance_stored_in_objects(self):
-        self.assertIn(BaseModel(), models.storage.all().values())
-
-    def test_id_is_public_str(self):
-        self.assertEqual(str, type(BaseModel().id))
-
-    def test_created_at_is_public_datetime(self):
-        self.assertEqual(datetime, type(BaseModel().created_at))
-
-    def test_updated_at_is_public_datetime(self):
-        self.assertEqual(datetime, type(BaseModel().updated_at))
-
-    def test_two_models_unique_ids(self):
-        bm1 = BaseModel()
-        bm2 = BaseModel()
-        self.assertNotEqual(bm1.id, bm2.id)
-
-    def test_two_models_different_created_at(self):
-        bm1 = BaseModel()
-        sleep(0.05)
-        bm2 = BaseModel()
-        self.assertLess(bm1.created_at, bm2.created_at)
-
-    def test_two_models_different_updated_at(self):
-        bm1 = BaseModel()
-        sleep(0.05)
-        bm2 = BaseModel()
-        self.assertLess(bm1.updated_at, bm2.updated_at)
-
-    def test_str_representation(self):
-        dt = datetime.today()
-        dt_repr = repr(dt)
-        bm = BaseModel()
-        bm.id = "123456"
-        bm.created_at = bm.updated_at = dt
-        bmstr = bm.__str__()
-        self.assertIn("[BaseModel] (123456)", bmstr)
-        self.assertIn("'id': '123456'", bmstr)
-        self.assertIn("'created_at': " + dt_repr, bmstr)
-        self.assertIn("'updated_at': " + dt_repr, bmstr)
-
-    def test_args_unused(self):
-        bm = BaseModel(None)
-        self.assertNotIn(None, bm.__dict__.values())
-
-    def test_instantiation_with_kwargs(self):
-        dt = datetime.today()
-        dt_iso = dt.isoformat()
-        bm = BaseModel(id="345", created_at=dt_iso, updated_at=dt_iso)
-        self.assertEqual(bm.id, "345")
-        self.assertEqual(bm.created_at, dt)
-        self.assertEqual(bm.updated_at, dt)
-
-    def test_instantiation_with_None_kwargs(self):
-        with self.assertRaises(TypeError):
-            BaseModel(id=None, created_at=None, updated_at=None)
-
-    def test_instantiation_with_args_and_kwargs(self):
-        dt = datetime.today()
-        dt_iso = dt.isoformat()
-        bm = BaseModel("12", id="345", created_at=dt_iso, updated_at=dt_iso)
-        self.assertEqual(bm.id, "345")
-        self.assertEqual(bm.created_at, dt)
-        self.assertEqual(bm.updated_at, dt)
-
-
-class TestBaseModel_save(unittest.TestCase):
-    """Unittests for testing save method of the BaseModel class."""
-
-    @classmethod
     def setUp(self):
-        try:
-            os.rename("file.json", "tmp")
-        except IOError:
-            pass
+        """Set up tests"""
+        storage.reset()
 
-    @classmethod
-    def tearDown(self):
-        try:
-            os.remove("file.json")
-        except IOError:
-            pass
-        try:
-            os.rename("tmp", "file.json")
-        except IOError:
-            pass
+    def test_00_class_type(self):
+        """Test for correct class type"""
+        b = BaseModel()
+        self.assertEqual(b.__class__.__name__, "BaseModel")
 
-    def test_one_save(self):
-        bm = BaseModel()
-        sleep(0.05)
-        first_updated_at = bm.updated_at
-        bm.save()
-        self.assertLess(first_updated_at, bm.updated_at)
+    def test_01_no_args(self):
+        """Test for no arguments passed into BaseModel"""
+        b = BaseModel()
+        self.assertTrue(hasattr(b, "id"))
+        self.assertTrue(hasattr(b, "created_at"))
+        self.assertTrue(hasattr(b, "updated_at"))
 
-    def test_two_saves(self):
-        bm = BaseModel()
-        sleep(0.05)
-        first_updated_at = bm.updated_at
-        bm.save()
-        second_updated_at = bm.updated_at
-        self.assertLess(first_updated_at, second_updated_at)
-        sleep(0.05)
-        bm.save()
-        self.assertLess(second_updated_at, bm.updated_at)
+    def test_02_correct_types_in_args(self):
+        """Test for correct types in args"""
+        b = BaseModel()
+        self.assertEqual(type(b.id), str)
+        self.assertEqual(b.created_at.__class__.__name__, "datetime")
+        self.assertEqual(b.updated_at.__class__.__name__, "datetime")
 
-    def test_save_with_arg(self):
-        bm = BaseModel()
+    def test_03_adding_extra_parameters(self):
+        """Test for manually adding parameters to empty BaseModel"""
+        b = BaseModel()
+        b.string = "Tu"
+        b.number = 1106
+        b.list = [1, 2, 3]
+        b.dict = {"a": 1}
+        self.assertTrue(hasattr(b, "string"))
+        self.assertTrue(hasattr(b, "number"))
+        self.assertTrue(hasattr(b, "list"))
+        self.assertTrue(hasattr(b, "dict"))
+        self.assertEqual(type(b.string), str)
+        self.assertEqual(type(b.number), int)
+        self.assertEqual(type(b.list), list)
+        self.assertEqual(type(b.dict), dict)
+
+    def test_04_str(self):
+        """Test to validate __str__ method is working properly"""
+        b = BaseModel()
+        p = r'(^\[BaseModel]) (\(\w{8}-\w{4}-\w{4}-\w{4}-\w{12}\)) (\{.*}$)'
+        prog = re.compile(p)
+        match = prog.match(str(b))
+        self.assertTrue(match is not None)
+
+    def test_05_save(self):
+        """Test to validate that updated_at is changed when saved"""
+        b = BaseModel()
+        first_time = b.updated_at
+        sleep(.5)
+        b.save()
+        second_time = b.updated_at
+        self.assertNotEqual(first_time, second_time)
+
+    def test_06_to_dict(self):
+        """Test to validate to_dict is outputting correctly"""
+        b = BaseModel()
+        b.name = "Tu"
+        b.number = 1987
+        d = b.to_dict()
+        self.assertTrue('number' in d)
+        self.assertTrue('name' in d)
+        self.assertTrue('id' in d)
+        self.assertTrue('created_at' in d)
+        self.assertTrue('updated_at' in d)
+        self.assertTrue('__class__' in d)
+
+    def test_06a_to_dict_values(self):
+        """Test to validate to_dict values are all strings"""
+        b = BaseModel()
+        b.name = "Tu"
+        b.number = 1987
+        d = b.to_dict()
+        self.assertEqual(type(d['name']), str)
+        self.assertEqual(type(d['number']), int)
+        self.assertEqual(type(d['created_at']), str)
+        self.assertEqual(type(d['updated_at']), str)
+        self.assertEqual(type(d['id']), str)
+        self.assertEqual(type(d['__class__']), str)
+
+    def test_07_recreate_instance(self):
+        """Test to create instances from to_dict"""
+        b = BaseModel()
+        b.name = "Tim"
+        b.number = 1993
+        d = b.to_dict()
+        new_b = BaseModel(**d)
+        self.assertEqual(b.id, new_b.id)
+        self.assertEqual(b.created_at, new_b.created_at)
+        self.assertEqual(b.updated_at, new_b.updated_at)
+        self.assertEqual(b.name, new_b.name)
+        self.assertEqual(b.number, new_b.number)
+        self.assertEqual(type(new_b.id), str)
+        self.assertEqual(new_b.created_at.__class__.__name__, "datetime")
+        self.assertEqual(new_b.updated_at.__class__.__name__, "datetime")
+        self.assertTrue(b is not new_b)
+
+    def test_07a_string_input(self):
+        """Passing a string for args"""
+        b = BaseModel("Betty")
+        self.assertEqual(b.__class__.__name__, "BaseModel")
+        self.assertTrue(hasattr(b, "id"))
+        self.assertTrue(hasattr(b, "created_at"))
+        self.assertTrue(hasattr(b, "updated_at"))
+
+    def test_07c_inf_input(self):
+        """Passing infinity input for args"""
+        b = BaseModel(float("inf"))
+        self.assertEqual(b.__class__.__name__, "BaseModel")
+        self.assertTrue(hasattr(b, "id"))
+        self.assertTrue(hasattr(b, "created_at"))
+        self.assertTrue(hasattr(b, "updated_at"))
+
+    def test_07d_nan_input(self):
+        """Passing NaN input for args"""
+        b = BaseModel(float("nan"))
+        self.assertEqual(b.__class__.__name__, "BaseModel")
+        self.assertTrue(hasattr(b, "id"))
+        self.assertTrue(hasattr(b, "created_at"))
+        self.assertTrue(hasattr(b, "updated_at"))
+
+    def test_07e_string_kwargs(self):
+        """Passing string input for kwargs"""
         with self.assertRaises(TypeError):
-            bm.save(None)
+            b = BaseModel(**"Betty")
 
-    def test_save_updates_file(self):
-        bm = BaseModel()
-        bm.save()
-        bmid = "BaseModel." + bm.id
-        with open("file.json", "r") as f:
-            self.assertIn(bmid, f.read())
-
-
-class TestBaseModel_to_dict(unittest.TestCase):
-    """Unittests for testing to_dict method of the BaseModel class."""
-
-    def test_to_dict_type(self):
-        bm = BaseModel()
-        self.assertTrue(dict, type(bm.to_dict()))
-
-    def test_to_dict_contains_correct_keys(self):
-        bm = BaseModel()
-        self.assertIn("id", bm.to_dict())
-        self.assertIn("created_at", bm.to_dict())
-        self.assertIn("updated_at", bm.to_dict())
-        self.assertIn("__class__", bm.to_dict())
-
-    def test_to_dict_contains_added_attributes(self):
-        bm = BaseModel()
-        bm.name = "Holberton"
-        bm.my_number = 98
-        self.assertIn("name", bm.to_dict())
-        self.assertIn("my_number", bm.to_dict())
-
-    def test_to_dict_datetime_attributes_are_strs(self):
-        bm = BaseModel()
-        bm_dict = bm.to_dict()
-        self.assertEqual(str, type(bm_dict["created_at"]))
-        self.assertEqual(str, type(bm_dict["updated_at"]))
-
-    def test_to_dict_output(self):
-        dt = datetime.today()
-        bm = BaseModel()
-        bm.id = "123456"
-        bm.created_at = bm.updated_at = dt
-        tdict = {
-            'id': '123456',
-            '__class__': 'BaseModel',
-            'created_at': dt.isoformat(),
-            'updated_at': dt.isoformat()
-        }
-        self.assertDictEqual(bm.to_dict(), tdict)
-
-    def test_contrast_to_dict_dunder_dict(self):
-        bm = BaseModel()
-        self.assertNotEqual(bm.to_dict(), bm.__dict__)
-
-    def test_to_dict_with_arg(self):
-        bm = BaseModel()
+    def test_07g_int_kwargs(self):
+        """Passing int input for kwargs"""
         with self.assertRaises(TypeError):
-            bm.to_dict(None)
+            b = BaseModel(**1)
+
+    def test_07h_float_kwargs(self):
+        """Passing float input for kwargs"""
+        with self.assertRaises(TypeError):
+            b = BaseModel(**1.2)
+
+    def test_07i_inf_kwargs(self):
+        """Passing float input for kwargs"""
+        with self.assertRaises(TypeError):
+            b = BaseModel(**float("inf"))
+
+    def test_07j_nan_kwargs(self):
+        """Passing float input for kwargs"""
+        with self.assertRaises(TypeError):
+            b = BaseModel(**float("nan"))
+
+    def test_08_empty_dict(self):
+        """Test for empty dict as an arg"""
+        b = BaseModel(**{})
+        self.assertTrue(hasattr(b, "id"))
+        self.assertTrue(hasattr(b, "created_at"))
+        self.assertTrue(hasattr(b, "updated_at"))
+
+    def test_08b_string_dict(self):
+        """Test for string dict as an arg"""
+        with self.assertRaises(TypeError):
+            b = BaseModel(**{"Betsy"})
+
+    def test_08c_int_dict(self):
+        """Test for int dict as an arg"""
+        with self.assertRaises(TypeError):
+            b = BaseModel(**{1})
+
+    def test_08d_float_dict(self):
+        """Test for float dict as an arg"""
+        with self.assertRaises(TypeError):
+            b = BaseModel(**{1.2})
+
+    def test_08e_inf_dict(self):
+        """Test for inf dict as an arg"""
+        with self.assertRaises(TypeError):
+            b = BaseModel(**{float("inf")})
+
+    def test_08e_nan_dict(self):
+        """Test for nan dict as an arg"""
+        with self.assertRaises(TypeError):
+            b = BaseModel(**{float("nan")})
+
+    def test_09_None(self):
+        """Test for None as an arg"""
+        b = BaseModel(None)
+        self.assertTrue(hasattr(b, "id"))
+        self.assertTrue(hasattr(b, "created_at"))
+        self.assertTrue(hasattr(b, "updated_at"))
+
+    def test_10_manual_kwargs(self):
+        """Test for manually entering in kwargs"""
+        b = BaseModel(id="74873652-ee4b-4eb4-8b92-6ccd09993bad",
+                      created_at="2019-06-28T13:33:31.943447",
+                      updated_at="2019-06-28T13:33:31.943460",
+                      name="Tu")
+        self.assertTrue(hasattr(b, "id"))
+        self.assertTrue(hasattr(b, "created_at"))
+        self.assertTrue(hasattr(b, "updated_at"))
+        self.assertTrue(hasattr(b, "name"))
+
+    def test_10a_manual_kwargs_none(self):
+        """Test for manually entering None in kwargs"""
+        with self.assertRaises(TypeError):
+            b = BaseModel(id=None,
+                          created_at=None,
+                          updated_at=None,
+                          name=None)
+            self.assertTrue(hasattr(b, "id"))
+            self.assertTrue(hasattr(b, "created_at"))
+            self.assertTrue(hasattr(b, "updated_at"))
+            self.assertTrue(hasattr(b, "name"))
+
+    def test_10b_manual_kwargs_int(self):
+        """Test for manually entering int in kwargs"""
+        with self.assertRaises(TypeError):
+            b = BaseModel(id=1,
+                          created_at=1,
+                          updated_at=1,
+                          name=1)
+            self.assertTrue(hasattr(b, "id"))
+            self.assertTrue(hasattr(b, "created_at"))
+            self.assertTrue(hasattr(b, "updated_at"))
+            self.assertTrue(hasattr(b, "name"))
+
+    def test_10c_manual_kwargs_float(self):
+        """Test for manually entering float in kwargs"""
+        with self.assertRaises(TypeError):
+            b = BaseModel(id=1.1,
+                          created_at=1.1,
+                          updated_at=1.1,
+                          name=1.1)
+            self.assertTrue(hasattr(b, "id"))
+            self.assertTrue(hasattr(b, "created_at"))
+            self.assertTrue(hasattr(b, "updated_at"))
+            self.assertTrue(hasattr(b, "name"))
+
+    def test_10d_manual_kwargs_inf(self):
+        """Test for manually entering inf in kwargs"""
+        with self.assertRaises(TypeError):
+            b = BaseModel(id=float("inf"),
+                          created_at=float("inf"),
+                          updated_at=float("inf"),
+                          name=float("inf"))
+            self.assertTrue(hasattr(b, "id"))
+            self.assertTrue(hasattr(b, "created_at"))
+            self.assertTrue(hasattr(b, "updated_at"))
+            self.assertTrue(hasattr(b, "name"))
+
+    def test_10e_manual_kwargs_nan(self):
+        """Test for manually entering nan in kwargs"""
+        with self.assertRaises(TypeError):
+            b = BaseModel(id=float("nan"),
+                          created_at=float("nan"),
+                          updated_at=float("nan"),
+                          name=float("nan"))
+            self.assertTrue(hasattr(b, "id"))
+            self.assertTrue(hasattr(b, "created_at"))
+            self.assertTrue(hasattr(b, "updated_at"))
+            self.assertTrue(hasattr(b, "name"))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

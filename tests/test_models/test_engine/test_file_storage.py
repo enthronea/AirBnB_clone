@@ -1,169 +1,131 @@
 #!/usr/bin/python3
-"""Defines unittests for models/engine/file_storage.py.
 
-Unittest classes:
-    TestFileStorage_instantiation
-    TestFileStorage_methods
 """
-import os
-import json
-import models
+Unittest for FileStorage class.
+"""
+
 import unittest
-from datetime import datetime
+import os
+from models import storage
 from models.base_model import BaseModel
 from models.engine.file_storage import FileStorage
-from models.user import User
-from models.state import State
-from models.place import Place
-from models.city import City
-from models.amenity import Amenity
-from models.review import Review
 
 
-class TestFileStorage_instantiation(unittest.TestCase):
-    """Unittests for testing instantiation of the FileStorage class."""
+class FileStorage_Test(unittest.TestCase):
+    """Tests for File Storge class."""
 
-    def test_FileStorage_instantiation_no_args(self):
-        self.assertEqual(type(FileStorage()), FileStorage)
-
-    def test_FileStorage_instantiation_with_arg(self):
-        with self.assertRaises(TypeError):
-            FileStorage(None)
-
-    def test_FileStorage_file_path_is_private_str(self):
-        self.assertEqual(str, type(FileStorage._FileStorage__file_path))
-
-    def testFileStorage_objects_is_private_dict(self):
-        self.assertEqual(dict, type(FileStorage._FileStorage__objects))
-
-    def test_storage_initializes(self):
-        self.assertEqual(type(models.storage), FileStorage)
-
-
-class TestFileStorage_methods(unittest.TestCase):
-    """Unittests for testing methods of the FileStorage class."""
-
-    @classmethod
     def setUp(self):
-        try:
-            os.rename("file.json", "tmp")
-        except IOError:
-            pass
+        """Set up tests."""
+        pass
 
-    @classmethod
     def tearDown(self):
+        """Tear down tests"""
         try:
             os.remove("file.json")
-        except IOError:
+        except Exception:
             pass
-        try:
-            os.rename("tmp", "file.json")
-        except IOError:
-            pass
-        FileStorage._FileStorage__objects = {}
 
-    def test_all(self):
-        self.assertEqual(dict, type(models.storage.all()))
+    def test_00_private_attrs(self):
+        """Test to validate attributes are private."""
+        fs = FileStorage()
+        with self.assertRaises(AttributeError):
+            print(fs.objects)
+        with self.assertRaises(AttributeError):
+            print(fs.file_path)
 
-    def test_all_with_arg(self):
-        with self.assertRaises(TypeError):
-            models.storage.all(None)
+    def test_00a_id_attrs(self):
+        """Test to validate attributes are private."""
+        b = BaseModel()
+        self.assertTrue(hasattr(b, "id"))
+        self.assertEqual(type(b.id), str)
 
-    def test_new(self):
-        bm = BaseModel()
-        us = User()
-        st = State()
-        pl = Place()
-        cy = City()
-        am = Amenity()
-        rv = Review()
-        models.storage.new(bm)
-        models.storage.new(us)
-        models.storage.new(st)
-        models.storage.new(pl)
-        models.storage.new(cy)
-        models.storage.new(am)
-        models.storage.new(rv)
-        self.assertIn("BaseModel." + bm.id, models.storage.all().keys())
-        self.assertIn(bm, models.storage.all().values())
-        self.assertIn("User." + us.id, models.storage.all().keys())
-        self.assertIn(us, models.storage.all().values())
-        self.assertIn("State." + st.id, models.storage.all().keys())
-        self.assertIn(st, models.storage.all().values())
-        self.assertIn("Place." + pl.id, models.storage.all().keys())
-        self.assertIn(pl, models.storage.all().values())
-        self.assertIn("City." + cy.id, models.storage.all().keys())
-        self.assertIn(cy, models.storage.all().values())
-        self.assertIn("Amenity." + am.id, models.storage.all().keys())
-        self.assertIn(am, models.storage.all().values())
-        self.assertIn("Review." + rv.id, models.storage.all().keys())
-        self.assertIn(rv, models.storage.all().values())
+    def test_01_all_return_type(self):
+        """Test to validate all() returns an object."""
+        fs = FileStorage()
+        self.assertEqual(type(fs.all()), dict)
 
-    def test_new_with_args(self):
-        with self.assertRaises(TypeError):
-            models.storage.new(BaseModel(), 1)
+    def test_01a_all_return_type(self):
+        """Test to validate all() returns an empty dict"""
+        fs = FileStorage()
+        fs.reset()
+        self.assertFalse(fs.all())
+        fs.new(BaseModel())
+        self.assertTrue(fs.all())
 
-    def test_save(self):
-        bm = BaseModel()
-        us = User()
-        st = State()
-        pl = Place()
-        cy = City()
-        am = Amenity()
-        rv = Review()
-        models.storage.new(bm)
-        models.storage.new(us)
-        models.storage.new(st)
-        models.storage.new(pl)
-        models.storage.new(cy)
-        models.storage.new(am)
-        models.storage.new(rv)
-        models.storage.save()
-        save_text = ""
-        with open("file.json", "r") as f:
-            save_text = f.read()
-            self.assertIn("BaseModel." + bm.id, save_text)
-            self.assertIn("User." + us.id, save_text)
-            self.assertIn("State." + st.id, save_text)
-            self.assertIn("Place." + pl.id, save_text)
-            self.assertIn("City." + cy.id, save_text)
-            self.assertIn("Amenity." + am.id, save_text)
-            self.assertIn("Review." + rv.id, save_text)
+    def test_02_working_save(self):
+        """Test to validate save works."""
+        fs = FileStorage()
+        fs.reset()
+        fs.new(BaseModel())
+        fs.save()
+        self.assertTrue(os.path.isfile("file.json"))
 
-    def test_save_with_arg(self):
-        with self.assertRaises(TypeError):
-            models.storage.save(None)
+    def test_03_working_reload(self):
+        """Test to validate reload works."""
+        b = BaseModel()
+        key = "BaseModel" + "." + b.id
+        b.save()
+        b1 = BaseModel()
+        key1 = "BaseModel" + "." + b1.id
+        b1.save()
+        self.assertTrue(storage.all()[key] is not None)
+        self.assertTrue(storage.all()[key1] is not None)
+        with self.assertRaises(KeyError):
+            storage.all()[12345]
 
-    def test_reload(self):
-        bm = BaseModel()
-        us = User()
-        st = State()
-        pl = Place()
-        cy = City()
-        am = Amenity()
-        rv = Review()
-        models.storage.new(bm)
-        models.storage.new(us)
-        models.storage.new(st)
-        models.storage.new(pl)
-        models.storage.new(cy)
-        models.storage.new(am)
-        models.storage.new(rv)
-        models.storage.save()
-        models.storage.reload()
-        objs = FileStorage._FileStorage__objects
-        self.assertIn("BaseModel." + bm.id, objs)
-        self.assertIn("User." + us.id, objs)
-        self.assertIn("State." + st.id, objs)
-        self.assertIn("Place." + pl.id, objs)
-        self.assertIn("City." + cy.id, objs)
-        self.assertIn("Amenity." + am.id, objs)
-        self.assertIn("Review." + rv.id, objs)
+    def test_03a_working_reload(self):
+        """Checks reload functionality if file_path doesn't exist"""
+        fs = FileStorage()
+        b = BaseModel()
+        key = "BaseModel" + '.' + b.id
+        fs.new(b)
+        fs.save()
+        fs.reset()
+        fs.reload()
+        self.assertTrue(fs.all()[key])
 
-    def test_reload_with_arg(self):
-        with self.assertRaises(TypeError):
-            models.storage.reload(None)
+    def test_04_working_new(self):
+        """Test to validate if new works."""
+        fs = FileStorage()
+        fs.new(BaseModel())
+        self.assertTrue(fs.all())
+
+    def test_05_new_int(self):
+        """Passes int to new"""
+        fs = FileStorage()
+        with self.assertRaises(AttributeError):
+            fs.new(1)
+
+    def test_06_new_float(self):
+        """Passes foat to new"""
+        fs = FileStorage()
+        with self.assertRaises(AttributeError):
+            fs.new(1.1)
+
+    def test_07_new_unknown(self):
+        """Passes unknown to new"""
+        fs = FileStorage()
+        with self.assertRaises(NameError):
+            fs.new(b)
+
+    def test_08_new_inf(self):
+        """Passes inf to new"""
+        fs = FileStorage()
+        with self.assertRaises(AttributeError):
+            fs.new(float("inf"))
+
+    def test_09_new_nan(self):
+        """Passes nan to new"""
+        fs = FileStorage()
+        with self.assertRaises(AttributeError):
+            fs.new(float("nan"))
+
+    def test_10_new_string(self):
+        """Passes string to new"""
+        fs = FileStorage()
+        with self.assertRaises(AttributeError):
+            fs.new("string")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()
